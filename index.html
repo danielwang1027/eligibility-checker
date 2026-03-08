@@ -18,41 +18,33 @@
   input[type=text], input[type=password] { width: 100%; padding: 9px 12px; border-radius: 8px; border: 1.5px solid #ddd; font-size: 13px; outline: none; }
   input:focus { border-color: #2563eb; }
   .toggle-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #888; font-size: 13px; }
-  .run-btn { width: 100%; padding: 11px 0; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; background: #2563eb; color: #fff; transition: background .2s; }
+  .run-btn { width: 100%; padding: 11px 0; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; background: #2563eb; color: #fff; }
   .run-btn:disabled { background: #9ca3af; cursor: not-allowed; }
-  .run-btn:not(:disabled):hover { background: #1d4ed8; }
   .error-box { background: #fff0f0; border: 1px solid #fca5a5; border-radius: 10px; padding: 14px 18px; color: #b91c1c; margin-bottom: 16px; }
   .error-box .hint { font-size: 12px; color: #999; margin-top: 6px; }
   .loading { text-align: center; padding: 48px; color: #666; }
-
-  /* Report styles */
   .report { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
-  .report-header h2 { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
-  .meta { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
-  .meta-item { font-size: 13px; }
-  .meta-item span { color: #888; margin-right: 4px; }
+  .report h2 { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+  .meta { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+  .meta-item { font-size: 13px; color: #888; }
   .meta-item b { color: #1a1a1a; }
-  .overall { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
-
+  .overall { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   thead tr { background: #1e293b; color: #fff; }
-  th { padding: 10px 12px; text-align: left; font-weight: 600; }
+  th { padding: 10px 12px; text-align: left; font-weight: 600; vertical-align: top; }
   td { padding: 9px 12px; vertical-align: top; border-bottom: 1px solid #f1f5f9; }
   tr:last-child td { border-bottom: none; }
-
   .camp-cell { min-width: 180px; }
-  .camp-cell .cname { font-weight: 600; font-size: 12px; }
-  .camp-cell .cid { font-size: 10px; color: #888; margin-top: 2px; }
-
+  .cname { font-weight: 600; font-size: 12px; }
+  .cid { font-size: 10px; color: #888; margin-top: 2px; }
   .detail-line { margin: 2px 0; }
   .cr-block { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e5e7eb; }
-  .cr-title { font-weight: 600; color: #555; margin-bottom: 2px; }
-
   .tag-ok { color: #15803d; }
   .tag-warn { color: #b45309; }
   .tag-err { color: #b91c1c; }
-
   .status-icon { text-align: center; font-size: 16px; }
+  .th-select { display: block; margin-top: 6px; width: 100%; padding: 4px 6px; border-radius: 6px; border: none; font-size: 11px; background: #374151; color: #fff; cursor: pointer; outline: none; }
+  .th-select option { background: #1e293b; }
 </style>
 </head>
 <body>
@@ -89,9 +81,8 @@ const WEBHOOK = "https://moloco.app.n8n.cloud/webhook/eligibility-check";
 
 function toggleKey() {
   const inp = document.getElementById("apiKey");
-  const btn = inp.nextElementSibling;
   inp.type = inp.type === "password" ? "text" : "password";
-  btn.textContent = inp.type === "password" ? "显示" : "隐藏";
+  inp.nextElementSibling.textContent = inp.type === "password" ? "显示" : "隐藏";
 }
 
 async function runCheck() {
@@ -113,12 +104,12 @@ async function runCheck() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     let data = await res.json();
     if (Array.isArray(data)) data = data[0];
-      if (data.json) data = data.json;
+    if (data.json) data = data.json;
     renderReport(data, ad_account_id, bundle_id);
   } catch (e) {
     document.getElementById("output").innerHTML = `
       <div class="error-box">❌ 请求失败：${e.message}
-        <div class="hint">请确认 n8n Webhook 节点处于监听状态（Test mode 需先点击 "Listen for test event"），且 API Key 正确</div>
+        <div class="hint">请确认 n8n Webhook 节点处于监听状态，且 API Key 正确</div>
       </div>`;
   } finally {
     btn.disabled = false; btn.textContent = "🚀 开始检查";
@@ -126,144 +117,133 @@ async function runCheck() {
 }
 
 function renderReport(r, adId, bundleId) {
+  window._reportData = r;
+  window._adId = adId;
+  window._bundleId = bundleId;
+
   const ts = new Date(r.timestamp).toLocaleString("zh-CN");
   const hasIssues = r.has_issues;
+  const overallBg = hasIssues ? "#fef3c7" : "#dcfce7";
+  const overallColor = hasIssues ? "#b45309" : "#15803d";
 
-  // Build table rows
+  // Collect unique campaign names and PI names for filters
+  const campOptions = (r.campaign_reports || []).map(c =>
+    `<option value="${c.campaign_id}">${c.campaign_name}</option>`).join("");
+  const piSet = new Set();
+  (r.campaign_reports || []).forEach(c => c.pi_checks.forEach(p => piSet.add(p.pi_name)));
+  const piOptions = [...piSet].map(n => `<option value="${n}">${n}</option>`).join("");
+
+  document.getElementById("output").innerHTML = `
+    <div class="report">
+      <h2>📋 PI Eligibility 检查报告</h2>
+      <div class="meta">
+        <div class="meta-item"><span>Bundle ID：</span><b>${bundleId}</b></div>
+        <div class="meta-item"><span>Ad Account：</span><b>${adId}</b></div>
+        <div class="meta-item"><span>检查时间：</span><b>${ts}</b></div>
+        <div class="meta-item"><span>Campaign 数：</span><b>${r.total_campaigns_checked}</b></div>
+      </div>
+      <span class="overall" style="background:${overallBg};color:${overallColor}">
+        ${hasIssues ? "⚠️ 存在问题需要处理" : "✅ 所有 Campaign 全部通过"}
+      </span>
+      <h3 style="font-size:14px;margin-bottom:12px">📁 Campaign 详情</h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:220px">
+              Campaign
+              <select id="filterCampaign" class="th-select" onchange="applyFilters()">
+                <option value="">全部</option>
+                ${campOptions}
+              </select>
+            </th>
+            <th style="width:120px">
+              PI
+              <select id="filterPI" class="th-select" onchange="applyFilters()">
+                <option value="">全部</option>
+                ${piOptions}
+              </select>
+            </th>
+            <th style="width:60px;text-align:center">状态</th>
+            <th>详情</th>
+          </tr>
+        </thead>
+        <tbody id="reportTbody"></tbody>
+      </table>
+    </div>`;
+
+  renderTable("", "");
+}
+
+function applyFilters() {
+  const campFilter = document.getElementById("filterCampaign").value;
+  const piFilter = document.getElementById("filterPI").value;
+  renderTable(campFilter, piFilter);
+}
+
+function renderTable(campFilter, piFilter) {
+  const r = window._reportData;
   let rows = "";
+
   for (const camp of (r.campaign_reports || [])) {
+    if (campFilter && camp.campaign_id !== campFilter) continue;
+
+    const filteredChecks = camp.pi_checks.filter(p => {
+      if (piFilter && p.pi_name !== piFilter) return false;
+      return true;
+    });
+    if (filteredChecks.length === 0) continue;
+
     const campBad = camp.pi_checks.some(p => !p.eligible);
     const campBg = campBad ? "#fff5f5" : "#f0fdf4";
     const campIcon = campBad ? "❌" : "✅";
-    const rowspan = camp.pi_checks.length;
 
-    camp.pi_checks.forEach((p, i) => {
+    filteredChecks.forEach((p, i) => {
       const hasErr = p.errors?.length > 0;
-      const hasWarn = p.warnings?.length > 0;
-      const hasCrErr = (p.creative_errors || []).some(cr => cr.errors?.length > 0);
       const statusIcon = p.eligible ? "✅" : (hasErr ? "❌" : "⚠️");
       const rowBg = p.eligible ? "#f9fff9" : (hasErr ? "#fff9f9" : "#fffdf0");
 
-      // Detail cell content
       let detail = "";
       (p.errors || []).forEach(e => detail += `<div class="detail-line tag-err">${e}</div>`);
       (p.warnings || []).forEach(w => detail += `<div class="detail-line tag-warn">${w}</div>`);
       (p.passed || []).forEach(s => detail += `<div class="detail-line tag-ok">${s}</div>`);
 
-      // Creative errors
       const crBad = (p.creative_errors || []).filter(cr => cr.errors?.length > 0);
-      const crOk = (p.creative_errors || []).filter(cr => cr.passed?.length > 0 && !cr.errors?.length);
-
-      if (crBad.length > 0 || crOk.length > 0) {
+      const allCr = p.creative_errors || [];
+      if (crBad.length > 0 || allCr.some(cr => cr.passed?.length > 0)) {
         detail += `<div class="cr-block">`;
-
-        // Group by field type for bad creatives
+        const iconBad  = crBad.filter(cr => cr.errors.some(e => e.includes("Icon")));
         const titleBad = crBad.filter(cr => cr.errors.some(e => e.includes("标题")));
         const descBad  = crBad.filter(cr => cr.errors.some(e => e.includes("描述")));
         const ctaBad   = crBad.filter(cr => cr.errors.some(e => e.includes("CTA")));
-        const iconBad  = crBad.filter(cr => cr.errors.some(e => e.includes("Icon")));
-
-        if (iconBad.length) {
-          const s = iconBad[0].errors.find(e => e.includes("Icon"));
-          const m = s.match(/\d+x\d+ 低于最小要求 \d+x\d+/);
-          detail += `<div class="detail-line tag-err">🖼️ Icon 尺寸不足：${iconBad.length} 个 Creative${m ? "（" + m[0] + "）" : ""}</div>`;
-        }
-        if (titleBad.length) {
-          const s = titleBad[0].errors.find(e => e.includes("标题"));
-          const m = s.match(/\d+ 字符，上限 \d+/);
-          detail += `<div class="detail-line tag-err">📝 标题超长：${titleBad.length} 个 Creative${m ? "（" + m[0] + "）" : ""}</div>`;
-        }
-        if (descBad.length) {
-          const s = descBad[0].errors.find(e => e.includes("描述"));
-          const m = s.match(/\d+ 字符，上限 \d+/);
-          detail += `<div class="detail-line tag-err">📝 描述超长：${descBad.length} 个 Creative${m ? "（" + m[0] + "）" : ""}</div>`;
-        }
-        if (ctaBad.length) {
-          const s = ctaBad[0].errors.find(e => e.includes("CTA"));
-          const m = s.match(/\d+ 字符，上限 \d+/);
-          detail += `<div class="detail-line tag-err">📝 CTA 超长：${ctaBad.length} 个 Creative${m ? "（" + m[0] + "）" : ""}</div>`;
-        }
-
-        // Passed creatives summary
-        const iconOk  = (p.creative_errors || []).filter(cr => cr.passed?.some(s => s.includes("Icon")));
-        const titleOk = (p.creative_errors || []).filter(cr => cr.passed?.some(s => s.includes("标题")));
-        const descOk  = (p.creative_errors || []).filter(cr => cr.passed?.some(s => s.includes("描述")));
-        const ctaOk   = (p.creative_errors || []).filter(cr => cr.passed?.some(s => s.includes("CTA")));
-
-        if (iconOk.length) {
-          const sample = iconOk[0].passed.find(s => s.includes("Icon"));
-          const dim = sample ? sample.replace("✅ Icon 尺寸：", "") : "";
-          detail += `<div class="detail-line tag-ok">🖼️ Icon 尺寸通过：${iconOk.length} 个 Creative${dim ? "（" + dim + "）" : ""}</div>`;
-        }
-        if (titleOk.length) {
-          const sample = titleOk[0].passed.find(s => s.includes("标题"));
-          const stat = sample ? sample.replace("✅ 标题：", "") : "";
-          detail += `<div class="detail-line tag-ok">📝 标题通过：${titleOk.length} 个 Creative${stat ? "（" + stat + "）" : ""}</div>`;
-        }
-        if (descOk.length) {
-          const sample = descOk[0].passed.find(s => s.includes("描述"));
-          const stat = sample ? sample.replace("✅ 描述：", "") : "";
-          detail += `<div class="detail-line tag-ok">📝 描述通过：${descOk.length} 个 Creative${stat ? "（" + stat + "）" : ""}</div>`;
-        }
-        if (ctaOk.length) {
-          const sample = ctaOk[0].passed.find(s => s.includes("CTA"));
-          const stat = sample ? sample.replace("✅ CTA：", "") : "";
-          detail += `<div class="detail-line tag-ok">📝 CTA 通过：${ctaOk.length} 个 Creative${stat ? "（" + stat + "）" : ""}</div>`;
-        }
-
+        if (iconBad.length)  { const m = iconBad[0].errors.find(e => e.includes("Icon")).match(/\d+x\d+ 低于最小要求 \d+x\d+/); detail += `<div class="detail-line tag-err">🖼️ Icon 尺寸不足：${iconBad.length} 个 Creative${m?"（"+m[0]+"）":""}</div>`; }
+        if (titleBad.length) { const m = titleBad[0].errors.find(e => e.includes("标题")).match(/\d+ 字符，上限 \d+/); detail += `<div class="detail-line tag-err">📝 标题超长：${titleBad.length} 个 Creative${m?"（"+m[0]+"）":""}</div>`; }
+        if (descBad.length)  { const m = descBad[0].errors.find(e => e.includes("描述")).match(/\d+ 字符，上限 \d+/); detail += `<div class="detail-line tag-err">📝 描述超长：${descBad.length} 个 Creative${m?"（"+m[0]+"）":""}</div>`; }
+        if (ctaBad.length)   { const m = ctaBad[0].errors.find(e => e.includes("CTA")).match(/\d+ 字符，上限 \d+/); detail += `<div class="detail-line tag-err">📝 CTA 超长：${ctaBad.length} 个 Creative${m?"（"+m[0]+"）":""}</div>`; }
+        const iconOk  = allCr.filter(cr => cr.passed?.some(s => s.includes("Icon")));
+        const titleOk = allCr.filter(cr => cr.passed?.some(s => s.includes("标题")));
+        const descOk  = allCr.filter(cr => cr.passed?.some(s => s.includes("描述")));
+        const ctaOk   = allCr.filter(cr => cr.passed?.some(s => s.includes("CTA")));
+        if (iconOk.length)  { const s = iconOk[0].passed.find(s => s.includes("Icon")); detail += `<div class="detail-line tag-ok">🖼️ Icon 尺寸通过：${iconOk.length} 个 Creative${s?"（"+s.replace("✅ Icon 尺寸：","")+"）":""}</div>`; }
+        if (titleOk.length) { const s = titleOk[0].passed.find(s => s.includes("标题")); detail += `<div class="detail-line tag-ok">📝 标题通过：${titleOk.length} 个 Creative${s?"（"+s.replace("✅ 标题：","")+"）":""}</div>`; }
+        if (descOk.length)  { const s = descOk[0].passed.find(s => s.includes("描述")); detail += `<div class="detail-line tag-ok">📝 描述通过：${descOk.length} 个 Creative${s?"（"+s.replace("✅ 描述：","")+"）":""}</div>`; }
+        if (ctaOk.length)   { const s = ctaOk[0].passed.find(s => s.includes("CTA")); detail += `<div class="detail-line tag-ok">📝 CTA 通过：${ctaOk.length} 个 Creative${s?"（"+s.replace("✅ CTA：","")+"）":""}</div>`; }
         detail += `</div>`;
       }
-
       if (!detail) detail = `<span class="tag-ok">通过</span>`;
 
       const campCell = i === 0
-        ? `<td rowspan="${rowspan}" class="camp-cell" style="background:${campBg};border-right:2px solid #e2e8f0;vertical-align:top">
+        ? `<td rowspan="${filteredChecks.length}" class="camp-cell" style="background:${campBg};border-right:2px solid #e2e8f0;vertical-align:top">
             <div style="margin-bottom:4px">${campIcon}</div>
             <div class="cname">${camp.campaign_name}</div>
             <div class="cid">${camp.campaign_id}</div>
-           </td>`
-        : "";
+           </td>` : "";
 
-      rows += `<tr style="background:${rowBg}">
-        ${campCell}
-        <td><b>${p.pi_name}</b></td>
-        <td class="status-icon">${statusIcon}</td>
-        <td>${detail}</td>
-      </tr>`;
+      rows += `<tr style="background:${rowBg}">${campCell}<td><b>${p.pi_name}</b></td><td class="status-icon">${statusIcon}</td><td>${detail}</td></tr>`;
     });
   }
 
-  const overallBg = hasIssues ? "#fef3c7" : "#dcfce7";
-  const overallColor = hasIssues ? "#b45309" : "#15803d";
-
-  document.getElementById("output").innerHTML = `
-    <div class="report">
-      <div class="report-header">
-        <h2>📋 PI Eligibility 检查报告</h2>
-        <div class="meta">
-          <div class="meta-item"><span>Bundle ID：</span><b>${bundleId}</b></div>
-          <div class="meta-item"><span>Ad Account：</span><b>${adId}</b></div>
-          <div class="meta-item"><span>检查时间：</span><b>${ts}</b></div>
-          <div class="meta-item"><span>Campaign 数：</span><b>${r.total_campaigns_checked}</b></div>
-        </div>
-        <span class="overall" style="background:${overallBg};color:${overallColor}">
-          ${hasIssues ? "⚠️ 存在问题需要处理" : "✅ 所有 Campaign 全部通过"}
-        </span>
-      </div>
-
-      <h3 style="font-size:14px;margin-bottom:12px">📁 Campaign 详情</h3>
-      <table>
-        <thead>
-          <tr>
-            <th style="width:200px">Campaign</th>
-            <th style="width:110px">PI</th>
-            <th style="width:60px;text-align:center">状态</th>
-            <th>详情</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+  if (!rows) rows = `<tr><td colspan="4" style="text-align:center;padding:24px;color:#888">没有符合条件的结果</td></tr>`;
+  document.getElementById("reportTbody").innerHTML = rows;
 }
 </script>
 </body>
