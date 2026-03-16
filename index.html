@@ -42,6 +42,17 @@
   .tag-ok { color: #15803d; }
   .tag-warn { color: #b45309; }
   .tag-err { color: #b91c1c; }
+  /* 新增：屏蔽问题专用样式，比普通错误更醒目 */
+  .tag-block {
+    display: inline-block;
+    color: #7c3aed;
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 6px;
+    padding: 2px 7px;
+    margin: 2px 0;
+    font-weight: 600;
+  }
   .status-icon { text-align: center; font-size: 16px; }
   .th-select { display: block; margin-top: 6px; width: 100%; padding: 4px 6px; border-radius: 6px; border: none; font-size: 11px; background: #374151; color: #fff; cursor: pointer; outline: none; }
   .th-select option { background: #1e293b; }
@@ -126,7 +137,6 @@ function renderReport(r, adId, bundleId) {
   const overallBg = hasIssues ? "#fef3c7" : "#dcfce7";
   const overallColor = hasIssues ? "#b45309" : "#15803d";
 
-  // Collect unique campaign names and PI names for filters
   const campOptions = (r.campaign_reports || []).map(c =>
     `<option value="${c.campaign_id}">${c.campaign_name}</option>`).join("");
   const piSet = new Set();
@@ -180,6 +190,14 @@ function applyFilters() {
   renderTable(campFilter, piFilter);
 }
 
+// 判断是否为屏蔽类错误
+function isBlockingError(e) {
+  return e.includes("Publisher 未在白名单") ||
+         e.includes("Publisher 屏蔽") ||
+         e.includes("Exchange 屏蔽") ||
+         e.includes("Exchange 未在白名单");
+}
+
 function renderTable(campFilter, piFilter) {
   const r = window._reportData;
   let rows = "";
@@ -199,14 +217,32 @@ function renderTable(campFilter, piFilter) {
 
     filteredChecks.forEach((p, i) => {
       const hasErr = p.errors?.length > 0;
-      const statusIcon = p.eligible ? "✅" : (hasErr ? "❌" : "⚠️");
-      const rowBg = p.eligible ? "#f9fff9" : (hasErr ? "#fff9f9" : "#fffdf0");
+      const hasBlockingErr = (p.errors || []).some(isBlockingError);
+      // 屏蔽问题用紫色，普通错误用红色
+      const statusIcon = p.eligible ? "✅" : (hasBlockingErr ? "🚫" : (hasErr ? "❌" : "⚠️"));
+      const rowBg = p.eligible ? "#f9fff9" : (hasBlockingErr ? "#faf5ff" : (hasErr ? "#fff9f9" : "#fffdf0"));
 
       let detail = "";
-      (p.errors || []).forEach(e => detail += `<div class="detail-line tag-err">${e}</div>`);
-      (p.warnings || []).forEach(w => detail += `<div class="detail-line tag-warn">${w}</div>`);
-      (p.passed || []).forEach(s => detail += `<div class="detail-line tag-ok">${s}</div>`);
 
+      // 屏蔽错误优先显示在最上方
+      const blockingErrors = (p.errors || []).filter(isBlockingError);
+      const normalErrors = (p.errors || []).filter(e => !isBlockingError(e));
+
+      blockingErrors.forEach(e => {
+        detail += `<div class="detail-line"><span class="tag-block">🚫 流量屏蔽 ${e.replace("❌ ", "")}</span></div>`;
+      });
+      normalErrors.forEach(e => detail += `<div class="detail-line tag-err">${e}</div>`);
+      (p.warnings || []).forEach(w => detail += `<div class="detail-line tag-warn">${w}</div>`);
+      (p.passed || []).forEach(s => {
+        // 屏蔽检查通过单独标注
+        if (s.includes("未检测到") && s.includes("流量屏蔽")) {
+          detail += `<div class="detail-line tag-ok" style="color:#2563eb">🔓 ${s.replace("✅ ", "")}</div>`;
+        } else {
+          detail += `<div class="detail-line tag-ok">${s}</div>`;
+        }
+      });
+
+      // Creative 级别
       const crBad = (p.creative_errors || []).filter(cr => cr.errors?.length > 0);
       const allCr = p.creative_errors || [];
       if (crBad.length > 0 || allCr.some(cr => cr.passed?.length > 0)) {
